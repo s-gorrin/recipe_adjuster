@@ -26,6 +26,11 @@ Recipe format:
         256g    rice
         1024ml  water
     any method or instructions are expected to be at the end
+
+Bread:
+    work in progress. idea was to generate breasd recipes from
+    amounts of ingrients, based on baker's percentage. currently
+    not well integrated.
 """
 
 import os
@@ -166,6 +171,75 @@ def get_file():
             print("Did you mean one of these?\n" + ', '.join(partials))
 
 
+def g_or_p(test):
+    """
+    Looks for '%' or 'g' in a test string.
+
+    Returns the number as a decimal for percentages or alone if not.
+    Returns None for errors or anything else
+    """
+    number = test.split(' ')[0]
+    try:
+        float(number)
+        if '%' in test or "percent" in test:
+            return round((float(number) / 100), 3)
+        elif 'g' in test:
+            return round(float(number), 1)
+        else:
+            return None
+    except ValueError:
+        return None
+
+
+def bread():
+    """
+    Builds a bread recipe. Steps:
+
+    Prompt number of loaves (a loaf is about 880g)
+    List flours, by grams or percentage of each, based on a total
+        Numbered list, pick by number
+    Hydration percentage or grams
+        (starting with 346g/loaf, maybe adjust for flour types)
+    Default 9g salt per loaf
+    Default 92g starter per loaf
+
+    Generate file for finished recipe.
+
+    This is not quite finished, but it mostly works. Current problem:
+        there is a "close" for the recipe file, but bread never opens it.
+        solution is probably a flag.
+    """
+    flour_menu = ["0: all purpose", "1: bread", "2: whole wheat", 
+            "3: oat", "4: rye", "5: spelt", "6: barley"]
+    print("\n".join(flour_menu), "\npick up to three by number")
+    flour_list = []
+    for i in range(3): # make list of flours in recipe
+        flour = input("select a flour type or finish with flours\n> ")
+        if flour.isnumeric() and int(flour) in range(7):
+            flour_list.append(flour_menu[int(flour)])
+        else:
+            break
+    bread_recipe = []
+    total_flour = 0
+    for item in flour_list: # generate Entry for flours
+        test = input("how much " + item + "? (format: \"x g\" or \"y %\")\n> ")
+        amount = g_or_p(test)
+        if amount < 1:
+            bread_recipe.append(Entry((amount * 433.5), 'g', item))
+            total_flour += (amount * 433.5)
+        else:
+            bread_recipe.append(Entry(amount, 'g', item))
+            total_flour += amount
+    water = input("what percent hydration?"
+            "(just a number, if unsure, \"80\")\n> ")
+    bread_recipe.append(Entry(((float(water) / 100) * total_flour),
+        'g', "water"))
+    salt = input("how much salt? (just a number in grams. if unsure, \"9\"\n> ")
+    bread_recipe.append(Entry(float(salt), 'g', "salt"))
+    bread_recipe.append(Entry(92, 'g', "starter"))
+    return bread_recipe
+
+
 recipe = []  # The list of recipe elements
 method = ''  # Everything thing in the file that is not ingredients
 """
@@ -173,17 +247,23 @@ files = get_files()
 print(", ".join(files))
 filename = input("What is the name of the file?\n> ")
 """
+
+# Bread prompt goes here
+if input("are you making bread? (y/n)\n> ") == 'y':
+    recipe = bread()
+    filename = "bread_recipe.txt"
+else:
 # Take open, read, parse recipe.
-filename = get_file()
-file_in = open(filename, 'r')
-for line in file_in:
-    parsed = parse_line(line)
-    if parsed:
-        recipe.append(parsed)
-    else:
-        method += line
-for item in recipe:
-    item.print_out()
+    filename = get_file()
+    file_in = open(filename, 'r')
+    for line in file_in:
+        parsed = parse_line(line)
+        if parsed:
+            recipe.append(parsed)
+        else:
+            method += line
+    for item in recipe:
+        item.print_out()
 
 ratio = get_ratio(recipe)
 
